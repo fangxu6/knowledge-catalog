@@ -6,6 +6,10 @@
   "bin": {
     "kcmd": "./dist/kcmd"
   },
+  "types": "./build/ts/kcmd/index.d.ts",
+  "exports": {
+    ".": "./build/ts/kcmd/index.js"
+  },
   "scripts": {
     "build:libts": "npx tsc -p src/libts/tsconfig.json",
     "build:tool": "npx bun build --compile --outfile dist/kcmd src/tool/main.ts",

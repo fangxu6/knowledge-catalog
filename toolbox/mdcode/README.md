@@ -237,7 +237,7 @@ bq mk -t ${DEMO_CLOUD_PROJECT}:demo-dataset.demo-table name:string,value:string
 
 **Create and populate a catalog snapshot**
 ```bash
-kcmd init --bigquery-dataset ${DEMO_CLOUD_PROJECT}:demo-dataset
+kcmd init --bigquery-dataset ${DEMO_CLOUD_PROJECT}.demo-dataset
 kcmd pull
 ```
 
