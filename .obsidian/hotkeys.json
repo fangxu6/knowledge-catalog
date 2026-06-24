@@ -1,0 +1,109 @@
+{
+  "app:open-command-palette": [
+    {
+      "modifiers": [
+        "Ctrl"
+      ],
+      "key": "P"
+    }
+  ],
+  "workspace:toggle-left-sidebar": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "L"
+    }
+  ],
+  "workspace:toggle-right-sidebar": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "R"
+    }
+  ],
+  "file-explorer:reveal-active-file": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "F"
+    }
+  ],
+  "obsidian-git:commit-and-sync": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "G"
+    }
+  ],
+  "calendar:open-view": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "C"
+    }
+  ],
+  "periodic-notes:open-daily-note": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "D"
+    }
+  ],
+  "periodic-notes:open-weekly-note": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "W"
+    }
+  ],
+  "periodic-notes:open-monthly-note": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "M"
+    }
+  ],
+  "periodic-notes:open-yearly-note": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "Y"
+    }
+  ],
+  "excalidraw:open-new": [
+    {
+      "modifiers": [
+        "Ctrl",
+        "Alt"
+      ],
+      "key": "E"
+    }
+  ],
+  "templater-obsidian:templates/Insert Callouts.md": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "Q"
+    }
+  ]
+}

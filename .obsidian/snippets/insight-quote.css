@@ -1,0 +1,31 @@
+.callout[data-callout="insight"] {
+  --callout-color: 255, 111, 0; /* 橙色：强调个人感悟 */
+  border-left: 3px solid #ff6f00;
+  background-color: rgba(255, 111, 0, 0.08);
+}
+.callout[data-callout="insight"] .callout-title {
+  font-weight: 700;
+}
+.callout[data-callout="insight"] .callout-title-inner::before {
+  content: "✍️ ";
+}
+
+.callout[data-callout="cite"] {
+  --callout-color: 63, 81, 181; /* 蓝色：引用/参考 */
+  border-left: 3px solid #3f51b5;
+  background-color: rgba(63, 81, 181, 0.08);
+}
+.callout[data-callout="cite"] .callout-title {
+  font-weight: 700;
+}
+.callout[data-callout="cite"] .callout-title-inner::before {
+  content: "📚 ";
+}
+
+/* 兼容暗色主题，提升可读性 */
+body.theme-dark .callout[data-callout="insight"] {
+  background-color: rgba(255, 111, 0, 0.12);
+}
+body.theme-dark .callout[data-callout="cite"] {
+  background-color: rgba(63, 81, 181, 0.12);
+}

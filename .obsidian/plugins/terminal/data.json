@@ -1,0 +1,168 @@
+{
+  "addToCommand": true,
+  "addToContextMenu": true,
+  "createInstanceNearExistingOnes": true,
+  "errorNoticeTimeout": 0,
+  "exposeInternalModules": true,
+  "focusOnNewInstance": true,
+  "hideStatusBar": "focused",
+  "interceptLogging": true,
+  "language": "",
+  "macOSOptionKeyPassthrough": true,
+  "newInstanceBehavior": "newHorizontalSplit",
+  "noticeTimeout": 5,
+  "openChangelogOnUpdate": true,
+  "pinNewInstance": true,
+  "preferredRenderer": "webgl",
+  "profiles": {
+    "darwinExternalDefault": {
+      "args": [
+        "\"$PWD\""
+      ],
+      "executable": "/System/Applications/Utilities/Terminal.app/Contents/macOS/Terminal",
+      "followTheme": true,
+      "name": "",
+      "platforms": {
+        "darwin": true
+      },
+      "restoreHistory": false,
+      "rightClickAction": "copyPaste",
+      "successExitCodes": [
+        "0",
+        "SIGINT",
+        "SIGTERM"
+      ],
+      "terminalOptions": {
+        "documentOverride": null
+      },
+      "type": "external"
+    },
+    "darwinIntegratedDefault": {
+      "args": [
+        "--login"
+      ],
+      "executable": "/bin/zsh",
+      "followTheme": true,
+      "name": "",
+      "platforms": {
+        "darwin": true
+      },
+      "pythonExecutable": "python3",
+      "restoreHistory": false,
+      "rightClickAction": "copyPaste",
+      "successExitCodes": [
+        "0",
+        "SIGINT",
+        "SIGTERM"
+      ],
+      "terminalOptions": {
+        "documentOverride": null
+      },
+      "type": "integrated",
+      "useWin32Conhost": true
+    },
+    "developerConsole": {
+      "followTheme": true,
+      "name": "",
+      "restoreHistory": false,
+      "rightClickAction": "copyPaste",
+      "successExitCodes": [
+        "0",
+        "SIGINT",
+        "SIGTERM"
+      ],
+      "terminalOptions": {
+        "documentOverride": null
+      },
+      "type": "developerConsole"
+    },
+    "linuxExternalDefault": {
+      "args": [],
+      "executable": "xterm",
+      "followTheme": true,
+      "name": "",
+      "platforms": {
+        "linux": true
+      },
+      "restoreHistory": false,
+      "rightClickAction": "copyPaste",
+      "successExitCodes": [
+        "0",
+        "SIGINT",
+        "SIGTERM"
+      ],
+      "terminalOptions": {
+        "documentOverride": null
+      },
+      "type": "external"
+    },
+    "linuxIntegratedDefault": {
+      "args": [],
+      "executable": "/bin/sh",
+      "followTheme": true,
+      "name": "",
+      "platforms": {
+        "linux": true
+      },
+      "pythonExecutable": "python3",
+      "restoreHistory": false,
+      "rightClickAction": "copyPaste",
+      "successExitCodes": [
+        "0",
+        "SIGINT",
+        "SIGTERM"
+      ],
+      "terminalOptions": {
+        "documentOverride": null
+      },
+      "type": "integrated",
+      "useWin32Conhost": true
+    },
+    "win32ExternalDefault": {
+      "args": [],
+      "executable": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "followTheme": true,
+      "name": "powershell-ext",
+      "platforms": {
+        "win32": true
+      },
+      "restoreHistory": false,
+      "rightClickAction": "copyPaste",
+      "successExitCodes": [
+        "0",
+        "SIGINT",
+        "SIGTERM"
+      ],
+      "terminalOptions": {
+        "documentOverride": null
+      },
+      "type": "external"
+    },
+    "win32IntegratedDefault": {
+      "args": [],
+      "executable": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "followTheme": true,
+      "name": "powershell7-int",
+      "platforms": {
+        "win32": true
+      },
+      "pythonExecutable": "C:\\Users\\fangx\\.pyenv\\pyenv-win\\versions\\3.12.10\\python3",
+      "restoreHistory": false,
+      "rightClickAction": "copyPaste",
+      "successExitCodes": [
+        "0",
+        "SIGINT",
+        "SIGTERM"
+      ],
+      "terminalOptions": {
+        "documentOverride": null
+      },
+      "type": "integrated",
+      "useWin32Conhost": true
+    }
+  },
+  "defaultProfile": "win32IntegratedDefault",
+  "terminalOptions": {
+    "documentOverride": null
+  }
+}
