@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OKF Bundle Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  color: #0f172a;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+.title strong { font-size: 16px; margin-right: 8px; }
+.muted { color: #64748b; font-size: 12px; }
+.controls { display: flex; gap: 8px; }
+.controls input, .controls select, .controls button {
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+}
+.controls input { width: 220px; }
+.controls button { cursor: pointer; background: #f1f5f9; }
+.controls button:hover { background: #e2e8f0; }
+
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+#graph {
+  flex: 1 1 60%;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  min-width: 0;
+  position: relative;
+}
+#detail {
+  flex: 0 0 40%;
+  overflow-y: auto;
+  padding: 18px 22px;
+  background: #fff;
+}
+#detail-empty {
+  text-align: center;
+  margin-top: 40px;
+}
+
+.detail-header { margin-bottom: 12px; }
+.detail-header h1 {
+  font-size: 18px;
+  margin: 4px 0 2px;
+  font-weight: 600;
+}
+.type-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+dl.frontmatter {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  row-gap: 4px;
+  column-gap: 12px;
+  margin: 8px 0 12px;
+  font-size: 13px;
+}
+dl.frontmatter dt {
+  color: #64748b;
+  font-weight: 500;
+}
+dl.frontmatter dd { margin: 0; }
+dl.frontmatter a { color: #2563eb; word-break: break-all; }
+
+.tag {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 4px 2px 0;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+}
+
+hr { border: none; border-top: 1px solid #e2e8f0; margin: 14px 0; }
+
+#detail-body { font-size: 13px; line-height: 1.55; }
+#detail-body h1 {
+  font-size: 16px; margin: 18px 0 6px;
+  padding-bottom: 4px; border-bottom: 1px solid #e2e8f0;
+}
+#detail-body h2 { font-size: 14px; margin: 14px 0 4px; }
+#detail-body h3 { font-size: 13px; margin: 12px 0 4px; }
+#detail-body p { margin: 6px 0; }
+#detail-body code {
+  background: #f1f5f9;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+#detail-body pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+#detail-body pre code { background: transparent; color: inherit; padding: 0; }
+#detail-body ul, #detail-body ol { padding-left: 22px; margin: 6px 0; }
+#detail-body li { margin: 2px 0; }
+#detail-body table { border-collapse: collapse; margin: 8px 0; }
+#detail-body th, #detail-body td {
+  border: 1px solid #e2e8f0; padding: 4px 8px; font-size: 12px;
+}
+#detail-body a.internal { color: #2563eb; cursor: pointer; }
+#detail-body a.external { color: #2563eb; }
+
+#detail-backlinks { margin-top: 18px; }
+#detail-backlinks h2 { font-size: 13px; color: #64748b; margin-bottom: 6px; }
+#detail-backlinks ul { padding-left: 18px; }
+#detail-backlinks a { color: #2563eb; cursor: pointer; }
+
+</style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <strong id="bundle-name"></strong>
+    <span class="muted">OKF bundle</span>
+  </div>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Search title / id / tag">
+    <select id="filter-type">
+      <option value="">All types</option>
+    </select>
+    <select id="layout">
+      <option value="cose">cose (force)</option>
+      <option value="concentric">concentric</option>
+      <option value="breadthfirst">breadth-first</option>
+      <option value="circle">circle</option>
+      <option value="grid">grid</option>
+    </select>
+    <button id="reset">Reset view</button>
+  </div>
+</header>
+
+<main>
+  <section id="graph"></section>
+  <section id="detail">
+    <div id="detail-empty" class="muted">Click a node to see its details.</div>
+    <article id="detail-content" hidden>
+      <header class="detail-header">
+        <span class="type-chip" id="detail-type"></span>
+        <h1 id="detail-title"></h1>
+        <div class="muted" id="detail-id"></div>
+      </header>
+      <dl class="frontmatter">
+        <dt>Description</dt><dd id="detail-description"></dd>
+        <dt>Resource</dt><dd id="detail-resource"></dd>
+        <dt>Tags</dt><dd id="detail-tags"></dd>
+      </dl>
+      <hr>
+      <div id="detail-body"></div>
+      <section id="detail-backlinks" hidden>
+        <h2>Cited by</h2>
+        <ul id="backlinks-list"></ul>
+      </section>
+    </article>
+  </section>
+</main>
+
+<script>
+window.BUNDLE_NAME = "mes";
+window.BUNDLE = {"nodes": [{"data": {"id": "datasets/mes-cp-oee-card-domain", "label": "MES CP OEE Card Domain", "type": "Knowledge Domain", "description": "MES \u4e2d\u56f4\u7ed5 CP \u5de5\u827a\u8bbe\u5907\u914d\u7f6e\u3001OEE \u62a5\u8868\u548c FUNC00757 \u677f\u5361\u5dee\u989d\u7684\u672c\u5730 OKF \u77e5\u8bc6\u57df\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "cp", "oee", "card-gap", "okf"], "color": "#94a3b8", "size": 36}}, {"data": {"id": "metrics/card-gap", "label": "CARD_GAP", "type": "Metric", "description": "Tester \u5b9e\u9645\u677f\u5361\u914d\u7f6e\u6bd4\u4ea7\u54c1\u6240\u9700\u677f\u5361\u914d\u7f6e\u591a\u51fa\u7684\u90e8\u5206\uff0c\u53ea\u8868\u8fbe\u591a\u4f59\uff0c\u4e0d\u8868\u8fbe\u77ed\u7f3a\u3002", "resource": "D:/Workspace/MES/MES_AI/backend/MES_SERVICE/nebula-mes-ext/src/main/java/com/nebula/mes/extension/object/generalReport/func00757/service/Func00757ServiceExt.java", "tags": ["mes", "metric", "func00757", "card-gap"], "color": "#94a3b8", "size": 36}}, {"data": {"id": "metrics/oee", "label": "OEE", "type": "Metric", "description": "FrmOEEReport \u4e2d\u57fa\u4e8e\u5b9e\u9645\u6570\u91cf\u4e0e\u9884\u8ba1\u6570\u91cf\u8ba1\u7b97\u7684\u6c47\u603b\u6307\u6807\u3002", "resource": "D:/Workspace/MES/MES_AI/frontend/MES_UI/Nebula.MOS.Module.Inquiry/Lot/FrmOEEReport.cs", "tags": ["mes", "metric", "oee"], "color": "#94a3b8", "size": 32}}, {"data": {"id": "queries/func00757-select-0001", "label": "FUNC00757_SELECT[0001]", "type": "Query", "description": "FUNC00757 \u62a5\u8868\u7684\u5ba2\u6237\u5316\u67e5\u8be2\uff0c\u63d0\u4f9b Prober/Tester/\u4ea7\u54c1/\u677f\u5361\u57fa\u7840\u884c\uff0cJava \u670d\u52a1\u518d\u8ba1\u7b97 CARD_GAP\u3002", "resource": "CUST_QUERY.FUNC00757_SELECT[0001]", "tags": ["mes", "cust-query", "func00757", "mssql"], "color": "#94a3b8", "size": 38}}, {"data": {"id": "queries/get-oee-data-cust-0001", "label": "GetOEEData_CUST[0001]", "type": "Query", "description": "OEE \u6570\u636e\u67e5\u8be2\uff0c\u4f9b OEE \u62a5\u8868\u5206\u6790\u548c\u7f16\u8f91\u5f39\u7a97\u8bfb\u53d6 OEE_DATA\u3002", "resource": "CUST_QUERY.GetOEEData_CUST[0001]", "tags": ["mes", "cust-query", "oee"], "color": "#94a3b8", "size": 33}}, {"data": {"id": "queries/get-oee-update-hist-cust-0001", "label": "GetOEEUpdateHist_CUST[0001]", "type": "Query", "description": "FrmOEEReport History \u6309\u94ae\u4f7f\u7528\u7684 OEE \u66f4\u65b0\u5386\u53f2\u67e5\u8be2\u3002", "resource": "CUST_QUERY.GetOEEUpdateHist_CUST[0001]", "tags": ["mes", "cust-query", "oee", "history"], "color": "#94a3b8", "size": 32}}, {"data": {"id": "references/source-evidence", "label": "\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e", "type": "Reference", "description": "MES OKF bundle \u7684\u6765\u6e90\u6587\u4ef6\u3001CodeGraph \u67e5\u8be2\u3001\u79c1\u57df\u77e5\u8bc6\u547d\u4e2d\u8303\u56f4\u548c\u5df2\u77e5\u8fb9\u754c\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "evidence", "okf"], "color": "#10b981", "size": 41}}, {"data": {"id": "reports/func00757", "label": "FUNC00757 Prober Tester \u677f\u5361\u5339\u914d\u62a5\u8868", "type": "Report", "description": "\u67e5\u8be2 Prober \u4e0e Tester \u5f53\u524d\u5339\u914d\u3001\u5f53\u524d\u4ea7\u54c1\u3001\u5b9e\u9645\u677f\u5361\u3001\u4ea7\u54c1\u6240\u9700\u677f\u5361\uff0c\u5e76\u7531 Java \u8ba1\u7b97 CARD_GAP\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "report", "func00757", "card-gap"], "color": "#94a3b8", "size": 37}}, {"data": {"id": "reports/oee-report", "label": "FrmOEEReport OEE \u62a5\u8868", "type": "Report", "description": "MES_UI \u4e2d\u7528\u4e8e OEE \u67e5\u8be2\u3001\u7f16\u8f91\u3001\u5386\u53f2\u67e5\u770b\u548c\u6c47\u603b\u7684 WinForms \u62a5\u8868\u7a97\u4f53\u3002", "resource": "D:/Workspace/MES/MES_AI/frontend/MES_UI/Nebula.MOS.Module.Inquiry/Lot/FrmOEEReport.cs", "tags": ["mes", "oee", "winforms", "report"], "color": "#94a3b8", "size": 34}}, {"data": {"id": "tables/cust-card-info", "label": "CUST_CARD_INFO", "type": "Table", "description": "Tester \u5b9e\u9645\u677f\u5361\u767b\u8bb0\u6765\u6e90\uff0cFUNC00757 \u4e2d `TESTER_CARD_DETAIL` \u7684\u57fa\u7840\u6570\u636e\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "tester", "card", "func00757"], "color": "#94a3b8", "size": 34}}, {"data": {"id": "tables/eqp-state", "label": "EQP_STATE", "type": "Table", "description": "\u8bbe\u5907\u8fd0\u884c\u6001\u8868\uff0cFUNC00757 \u901a\u8fc7\u5b83\u83b7\u53d6 Prober \u5f53\u524d\u4ea7\u54c1 `PROD_ID`\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "runtime", "equipment", "product"], "color": "#94a3b8", "size": 32}}, {"data": {"id": "tables/eqp", "label": "EQP", "type": "Table", "description": "\u8bbe\u5907\u4e3b\u6863\uff0cFUNC00757 \u4e2d\u540c\u65f6\u4f5c\u4e3a Prober \u4e0e Tester \u8bbe\u5907\u4fe1\u606f\u6765\u6e90\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "mdm", "equipment"], "color": "#94a3b8", "size": 33}}, {"data": {"id": "tables/et-prober-tester", "label": "ET_PROBER_TESTER", "type": "Table", "description": "Prober \u4e0e Tester \u7684\u7ed1\u5b9a\u5173\u7cfb\u8868\uff0cFUNC00757 \u901a\u8fc7\u5b83\u627e\u5230 Prober \u5f53\u524d\u5173\u8054\u7684 Tester\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "cp", "prober", "tester"], "color": "#94a3b8", "size": 32}}, {"data": {"id": "tables/et-proc-card", "label": "ET_PROC_CARD", "type": "Table", "description": "\u5de5\u827a\u8bbe\u5907\u6240\u9700\u677f\u5361\u914d\u7f6e\u8868\uff0cFUNC00757 \u4e2d `REQUIRED_PC_CARD` \u7684\u6765\u6e90\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "mdm", "cp", "card", "func00757"], "color": "#94a3b8", "size": 34}}, {"data": {"id": "tables/oee-data", "label": "OEE_DATA", "type": "Table", "description": "OEE \u62a5\u8868\u6570\u636e\u5bf9\u8c61\uff0c\u88ab FrmOEEReport \u548c OEE \u7f16\u8f91\u5f39\u7a97\u8bfb\u53d6\u3001\u7f16\u8f91\u3001\u6c47\u603b\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "oee", "report", "runtime"], "color": "#94a3b8", "size": 33}}, {"data": {"id": "tables/proc-eqp", "label": "PROC_EQP", "type": "Table", "description": "\u5de5\u827a\u89c4\u5219\u4e0b\u7684\u8bbe\u5907\u914d\u7f6e\u8868\uff0c\u5b9a\u4e49\u4ea7\u54c1\u5de5\u827a\u3001\u5de5\u7ad9\u4e0e\u53ef\u7528\u8bbe\u5907/\u8bbe\u5907\u6a21\u578b/CP \u53c2\u6570\u4e4b\u95f4\u7684\u5173\u7cfb\u3002", "resource": "D:/Workspace/MES/MES_AI", "tags": ["mes", "mdm", "process", "equipment", "cp"], "color": "#94a3b8", "size": 36}}], "edges": [{"data": {"id": "datasets/mes-cp-oee-card-domain__tables/proc-eqp", "source": "datasets/mes-cp-oee-card-domain", "target": "tables/proc-eqp"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__tables/et-proc-card", "source": "datasets/mes-cp-oee-card-domain", "target": "tables/et-proc-card"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__tables/eqp-state", "source": "datasets/mes-cp-oee-card-domain", "target": "tables/eqp-state"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__tables/oee-data", "source": "datasets/mes-cp-oee-card-domain", "target": "tables/oee-data"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__tables/eqp", "source": "datasets/mes-cp-oee-card-domain", "target": "tables/eqp"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__tables/et-prober-tester", "source": "datasets/mes-cp-oee-card-domain", "target": "tables/et-prober-tester"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__tables/cust-card-info", "source": "datasets/mes-cp-oee-card-domain", "target": "tables/cust-card-info"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__reports/func00757", "source": "datasets/mes-cp-oee-card-domain", "target": "reports/func00757"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__reports/oee-report", "source": "datasets/mes-cp-oee-card-domain", "target": "reports/oee-report"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__metrics/card-gap", "source": "datasets/mes-cp-oee-card-domain", "target": "metrics/card-gap"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__queries/func00757-select-0001", "source": "datasets/mes-cp-oee-card-domain", "target": "queries/func00757-select-0001"}}, {"data": {"id": "datasets/mes-cp-oee-card-domain__references/source-evidence", "source": "datasets/mes-cp-oee-card-domain", "target": "references/source-evidence"}}, {"data": {"id": "metrics/card-gap__tables/cust-card-info", "source": "metrics/card-gap", "target": "tables/cust-card-info"}}, {"data": {"id": "metrics/card-gap__tables/et-proc-card", "source": "metrics/card-gap", "target": "tables/et-proc-card"}}, {"data": {"id": "metrics/card-gap__reports/func00757", "source": "metrics/card-gap", "target": "reports/func00757"}}, {"data": {"id": "metrics/card-gap__queries/func00757-select-0001", "source": "metrics/card-gap", "target": "queries/func00757-select-0001"}}, {"data": {"id": "metrics/card-gap__references/source-evidence", "source": "metrics/card-gap", "target": "references/source-evidence"}}, {"data": {"id": "metrics/oee__tables/oee-data", "source": "metrics/oee", "target": "tables/oee-data"}}, {"data": {"id": "metrics/oee__reports/oee-report", "source": "metrics/oee", "target": "reports/oee-report"}}, {"data": {"id": "metrics/oee__references/source-evidence", "source": "metrics/oee", "target": "references/source-evidence"}}, {"data": {"id": "queries/func00757-select-0001__metrics/card-gap", "source": "queries/func00757-select-0001", "target": "metrics/card-gap"}}, {"data": {"id": "queries/func00757-select-0001__tables/eqp", "source": "queries/func00757-select-0001", "target": "tables/eqp"}}, {"data": {"id": "queries/func00757-select-0001__tables/et-prober-tester", "source": "queries/func00757-select-0001", "target": "tables/et-prober-tester"}}, {"data": {"id": "queries/func00757-select-0001__tables/eqp-state", "source": "queries/func00757-select-0001", "target": "tables/eqp-state"}}, {"data": {"id": "queries/func00757-select-0001__tables/cust-card-info", "source": "queries/func00757-select-0001", "target": "tables/cust-card-info"}}, {"data": {"id": "queries/func00757-select-0001__tables/proc-eqp", "source": "queries/func00757-select-0001", "target": "tables/proc-eqp"}}, {"data": {"id": "queries/func00757-select-0001__tables/et-proc-card", "source": "queries/func00757-select-0001", "target": "tables/et-proc-card"}}, {"data": {"id": "queries/func00757-select-0001__references/source-evidence", "source": "queries/func00757-select-0001", "target": "references/source-evidence"}}, {"data": {"id": "queries/get-oee-data-cust-0001__tables/oee-data", "source": "queries/get-oee-data-cust-0001", "target": "tables/oee-data"}}, {"data": {"id": "queries/get-oee-data-cust-0001__reports/oee-report", "source": "queries/get-oee-data-cust-0001", "target": "reports/oee-report"}}, {"data": {"id": "queries/get-oee-data-cust-0001__metrics/oee", "source": "queries/get-oee-data-cust-0001", "target": "metrics/oee"}}, {"data": {"id": "queries/get-oee-data-cust-0001__references/source-evidence", "source": "queries/get-oee-data-cust-0001", "target": "references/source-evidence"}}, {"data": {"id": "queries/get-oee-update-hist-cust-0001__tables/oee-data", "source": "queries/get-oee-update-hist-cust-0001", "target": "tables/oee-data"}}, {"data": {"id": "queries/get-oee-update-hist-cust-0001__reports/oee-report", "source": "queries/get-oee-update-hist-cust-0001", "target": "reports/oee-report"}}, {"data": {"id": "queries/get-oee-update-hist-cust-0001__references/source-evidence", "source": "queries/get-oee-update-hist-cust-0001", "target": "references/source-evidence"}}, {"data": {"id": "reports/func00757__tables/eqp-state", "source": "reports/func00757", "target": "tables/eqp-state"}}, {"data": {"id": "reports/func00757__tables/et-prober-tester", "source": "reports/func00757", "target": "tables/et-prober-tester"}}, {"data": {"id": "reports/func00757__tables/cust-card-info", "source": "reports/func00757", "target": "tables/cust-card-info"}}, {"data": {"id": "reports/func00757__tables/et-proc-card", "source": "reports/func00757", "target": "tables/et-proc-card"}}, {"data": {"id": "reports/func00757__metrics/card-gap", "source": "reports/func00757", "target": "metrics/card-gap"}}, {"data": {"id": "reports/func00757__queries/func00757-select-0001", "source": "reports/func00757", "target": "queries/func00757-select-0001"}}, {"data": {"id": "reports/func00757__references/source-evidence", "source": "reports/func00757", "target": "references/source-evidence"}}, {"data": {"id": "reports/oee-report__tables/oee-data", "source": "reports/oee-report", "target": "tables/oee-data"}}, {"data": {"id": "reports/oee-report__queries/get-oee-data-cust-0001", "source": "reports/oee-report", "target": "queries/get-oee-data-cust-0001"}}, {"data": {"id": "reports/oee-report__queries/get-oee-update-hist-cust-0001", "source": "reports/oee-report", "target": "queries/get-oee-update-hist-cust-0001"}}, {"data": {"id": "reports/oee-report__metrics/oee", "source": "reports/oee-report", "target": "metrics/oee"}}, {"data": {"id": "reports/oee-report__references/source-evidence", "source": "reports/oee-report", "target": "references/source-evidence"}}, {"data": {"id": "tables/cust-card-info__tables/et-proc-card", "source": "tables/cust-card-info", "target": "tables/et-proc-card"}}, {"data": {"id": "tables/cust-card-info__metrics/card-gap", "source": "tables/cust-card-info", "target": "metrics/card-gap"}}, {"data": {"id": "tables/cust-card-info__queries/func00757-select-0001", "source": "tables/cust-card-info", "target": "queries/func00757-select-0001"}}, {"data": {"id": "tables/cust-card-info__references/source-evidence", "source": "tables/cust-card-info", "target": "references/source-evidence"}}, {"data": {"id": "tables/eqp-state__tables/eqp", "source": "tables/eqp-state", "target": "tables/eqp"}}, {"data": {"id": "tables/eqp-state__tables/proc-eqp", "source": "tables/eqp-state", "target": "tables/proc-eqp"}}, {"data": {"id": "tables/eqp-state__references/source-evidence", "source": "tables/eqp-state", "target": "references/source-evidence"}}, {"data": {"id": "tables/eqp__tables/et-prober-tester", "source": "tables/eqp", "target": "tables/et-prober-tester"}}, {"data": {"id": "tables/eqp__tables/eqp-state", "source": "tables/eqp", "target": "tables/eqp-state"}}, {"data": {"id": "tables/eqp__tables/cust-card-info", "source": "tables/eqp", "target": "tables/cust-card-info"}}, {"data": {"id": "tables/eqp__references/source-evidence", "source": "tables/eqp", "target": "references/source-evidence"}}, {"data": {"id": "tables/et-prober-tester__tables/eqp", "source": "tables/et-prober-tester", "target": "tables/eqp"}}, {"data": {"id": "tables/et-prober-tester__tables/cust-card-info", "source": "tables/et-prober-tester", "target": "tables/cust-card-info"}}, {"data": {"id": "tables/et-prober-tester__references/source-evidence", "source": "tables/et-prober-tester", "target": "references/source-evidence"}}, {"data": {"id": "tables/et-proc-card__reports/func00757", "source": "tables/et-proc-card", "target": "reports/func00757"}}, {"data": {"id": "tables/et-proc-card__tables/proc-eqp", "source": "tables/et-proc-card", "target": "tables/proc-eqp"}}, {"data": {"id": "tables/et-proc-card__queries/func00757-select-0001", "source": "tables/et-proc-card", "target": "queries/func00757-select-0001"}}, {"data": {"id": "tables/et-proc-card__tables/cust-card-info", "source": "tables/et-proc-card", "target": "tables/cust-card-info"}}, {"data": {"id": "tables/et-proc-card__metrics/card-gap", "source": "tables/et-proc-card", "target": "metrics/card-gap"}}, {"data": {"id": "tables/et-proc-card__references/source-evidence", "source": "tables/et-proc-card", "target": "references/source-evidence"}}, {"data": {"id": "tables/oee-data__metrics/oee", "source": "tables/oee-data", "target": "metrics/oee"}}, {"data": {"id": "tables/oee-data__reports/oee-report", "source": "tables/oee-data", "target": "reports/oee-report"}}, {"data": {"id": "tables/oee-data__queries/get-oee-data-cust-0001", "source": "tables/oee-data", "target": "queries/get-oee-data-cust-0001"}}, {"data": {"id": "tables/oee-data__queries/get-oee-update-hist-cust-0001", "source": "tables/oee-data", "target": "queries/get-oee-update-hist-cust-0001"}}, {"data": {"id": "tables/oee-data__references/source-evidence", "source": "tables/oee-data", "target": "references/source-evidence"}}, {"data": {"id": "tables/proc-eqp__queries/func00757-select-0001", "source": "tables/proc-eqp", "target": "queries/func00757-select-0001"}}, {"data": {"id": "tables/proc-eqp__tables/et-proc-card", "source": "tables/proc-eqp", "target": "tables/et-proc-card"}}, {"data": {"id": "tables/proc-eqp__tables/eqp-state", "source": "tables/proc-eqp", "target": "tables/eqp-state"}}, {"data": {"id": "tables/proc-eqp__tables/oee-data", "source": "tables/proc-eqp", "target": "tables/oee-data"}}, {"data": {"id": "tables/proc-eqp__references/source-evidence", "source": "tables/proc-eqp", "target": "references/source-evidence"}}], "bodies": {"datasets/mes-cp-oee-card-domain": "# Scope\n\n\u8fd9\u4e2a\u77e5\u8bc6\u57df\u53ea\u8986\u76d6\u7b2c\u4e00\u7248\u53ef\u9a8c\u8bc1\u5bf9\u8c61\uff0c\u4e0d\u8bd5\u56fe\u7a77\u5c3d\u6574\u4e2a MES\uff1a\n\n* MDM \u4e3b\u6570\u636e\u914d\u7f6e\u4e2d\u7684 [PROC_EQP](../tables/proc-eqp.md) \u4e0e [ET_PROC_CARD](../tables/et-proc-card.md)\u3002\n* MES \u8fd0\u884c\u6001\u4e2d\u7684 [EQP_STATE](../tables/eqp-state.md) \u4e0e [OEE_DATA](../tables/oee-data.md)\u3002\n* \u8bbe\u5907\u4e3b\u6863\u548c\u7ed1\u5b9a\u5173\u7cfb\uff1a[EQP](../tables/eqp.md)\u3001[ET_PROBER_TESTER](../tables/et-prober-tester.md)\u3002\n* Tester \u5b9e\u9645\u677f\u5361\u6765\u6e90\uff1a[CUST_CARD_INFO](../tables/cust-card-info.md)\u3002\n* \u4e24\u4e2a\u62a5\u8868\u9762\uff1a[FUNC00757](../reports/func00757.md)\u3001[FrmOEEReport](../reports/oee-report.md)\u3002\n\n# Design Notes\n\n\u8be5 bundle \u523b\u610f\u4fdd\u7559\u201c\u914d\u7f6e\u201d\u548c\u201c\u8fd0\u884c\u6001\u201d\u7684\u8fb9\u754c\uff1a\n\n* [PROC_EQP](../tables/proc-eqp.md) \u4e0e [ET_PROC_CARD](../tables/et-proc-card.md) \u662f\u5de5\u827a\u914d\u7f6e\u53e3\u5f84\uff0c\u4e0d\u7b49\u540c\u4e8e\u73b0\u573a\u8bbe\u5907\u5f53\u524d\u6302\u8f7d\u72b6\u6001\u3002\n* [EQP_STATE](../tables/eqp-state.md) \u63d0\u4f9b\u8bbe\u5907\u5f53\u524d\u4ea7\u54c1\uff0cFUNC00757 \u7528\u5b83\u628a Prober \u8bbe\u5907\u5173\u8054\u5230\u4ea7\u54c1\u3002\n* [CUST_CARD_INFO](../tables/cust-card-info.md) \u662f Tester \u5b9e\u9645\u677f\u5361\u767b\u8bb0\uff0c\u4e0d\u80fd\u76f4\u63a5\u7b49\u540c\u4e8e\u4ea7\u54c1\u5de5\u827a\u6240\u9700\u677f\u5361\u3002\n* [CARD_GAP](../metrics/card-gap.md) \u53ea\u8868\u8fbe\u5b9e\u9645\u591a\u51fa\u7684\u677f\u5361\uff0c\u4e0d\u8868\u8fbe\u7f3a\u5c11\u7684\u677f\u5361\u3002\n\n# Agent Reading Path\n\n1. \u5148\u8bfb\u672c\u6587\u4ef6\u786e\u8ba4\u8303\u56f4\u3002\n2. \u5982\u679c\u8981\u89e3\u91ca FUNC00757\uff0c\u8bfb [FUNC00757_SELECT[0001]](../queries/func00757-select-0001.md) \u548c [CARD_GAP](../metrics/card-gap.md)\u3002\n3. \u5982\u679c\u8981\u89e3\u91ca OEE \u7f16\u8f91\uff0c\u8bfb [FrmOEEReport OEE \u62a5\u8868](../reports/oee-report.md) \u548c [OEE_DATA](../tables/oee-data.md)\u3002\n4. \u5982\u679c\u8981\u8ffd\u5de5\u827a\u914d\u7f6e\uff0c\u8bfb [PROC_EQP](../tables/proc-eqp.md) \u4e0e [ET_PROC_CARD](../tables/et-proc-card.md)\u3002\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "metrics/card-gap": "# Definition\n\n`CARD_GAP` \u8868\u793a Tester \u5b9e\u9645\u677f\u5361\u914d\u7f6e\u6bd4\u4ea7\u54c1\u5de5\u827a\u6240\u9700\u677f\u5361\u914d\u7f6e\u591a\u51fa\u6765\u7684\u90e8\u5206\u3002\n\n```text\nCARD_GAP = adjustedActualCards - effectiveRequiredCards, only when result > 0\n```\n\n\u5b83\u4e0d\u8868\u8fbe\u77ed\u7f3a\u677f\u5361\u3002\u5982\u679c\u5b9e\u9645\u5c11\u4e8e\u6240\u9700\uff0c`CARD_GAP` \u8fd4\u56de\u7a7a\u5b57\u7b26\u4e32\u3002\n\n# Inputs\n\n| Input | Meaning |\n|---|---|\n| `TESTER_CARD_DETAIL` | \u5b9e\u9645\u677f\u5361\u914d\u7f6e\uff0c\u6765\u81ea [CUST_CARD_INFO](../tables/cust-card-info.md) \u7684\u5c55\u793a\u805a\u5408\u3002 |\n| `REQUIRED_PC_CARD` | \u4ea7\u54c1\u5de5\u827a\u6240\u9700\u677f\u5361\uff0c\u6765\u81ea [ET_PROC_CARD](../tables/et-proc-card.md)\u3002 |\n\n# Parsing Rules\n\n* \u5e38\u89c4\u683c\u5f0f\uff1a`\u6570\u91cf*\u677f\u5361\u7c7b\u578b,\u6570\u91cf*\u677f\u5361\u7c7b\u578b`\u3002\n* `TESTER_CARD_DETAIL` \u53ef\u5305\u542b\u5305\u88c5\u683c\u5f0f\uff1a`8*FPVI(8*FPVI10_PLUS)`\u3001`3*DIO(1*DIO_PLUS,2*DIO_3.0)`\u3002\n* \u62ec\u53f7\u5916\u7684 `FPVI(...)`\u3001`DIO(...)` \u662f\u5c55\u793a\u5305\u88c5\uff1b\u62ec\u53f7\u5185\u7684\u7279\u6b8a\u677f\u5361\u624d\u6309\u539f\u59cb\u677f\u5361\u7c7b\u578b\u53c2\u4e0e\u8ba1\u7b97\u3002\n* \u540c\u4e00\u5b9e\u9645\u677f\u5361\u7c7b\u578b\u91cd\u590d\u51fa\u73b0\u65f6\u6309 `SUM` \u6c47\u603b\u3002\n* \u540c\u4e00\u9700\u6c42\u677f\u5361\u7c7b\u578b\u91cd\u590d\u51fa\u73b0\u65f6\u6309 `MAX` \u53bb\u91cd\u8bed\u4e49\u5904\u7406\u3002\n\n# Special Card Rules\n\n| Special Card | Can satisfy |\n|---|---|\n| `FPVI10_PLUS` | `FPVI` |\n| `DIO_PLUS` | `DIO` |\n| `DIO_3.0` | `DIO` \u6216 `DIO_PLUS` |\n\n\u8f93\u51fa\u65f6\u5fc5\u987b\u4fdd\u7559\u5b9e\u9645\u591a\u51fa\u6765\u7684\u539f\u59cb\u677f\u5361\u540d\uff0c\u4f8b\u5982 `FPVI10_PLUS`\u3001`DIO_PLUS`\u3001`DIO_3.0`\uff0c\u4e0d\u80fd\u7edf\u4e00\u6298\u7b97\u6210\u57fa\u7840\u677f\u5361\u540d\u3002\n\n# Output\n\n\u683c\u5f0f\uff1a\n\n```text\n\u6570\u91cf*\u539f\u59cb\u677f\u5361\u7c7b\u578b,\u6570\u91cf*\u539f\u59cb\u677f\u5361\u7c7b\u578b\n```\n\n\u65e0\u591a\u4f59\u677f\u5361\u65f6\u8fd4\u56de\u7a7a\u5b57\u7b26\u4e32\u3002\n\n# Example\n\n```text\nActual:   2*CBIT,12*FOVI,8*FPVI(8*FPVI10_PLUS),2*QTMU\nRequired: 2*CBIT,2*DIO,8*FOVI,8*FPVI10_PLUS,2*QTMU\nCARD_GAP: 4*FOVI\n```\n\n# Relationships\n\n* Report: [FUNC00757 Prober Tester \u677f\u5361\u5339\u914d\u62a5\u8868](../reports/func00757.md)\n* Query: [FUNC00757_SELECT[0001]](../queries/func00757-select-0001.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "metrics/oee": "# Definition\n\n\u5728 `FrmOEEReport.SetSummary()` \u4e2d\uff0cOEE \u6c47\u603b\u516c\u5f0f\u4e3a\uff1a\n\n```text\nROUNDDOWN(SUM(QTY) / SUM(ESTIMATE_QTY) * 100, 2)\n```\n\n\u62a5\u8868\u663e\u793a\u683c\u5f0f\u4e3a\uff1a\n\n```text\n\u5e73\u5747 = {0}%\n```\n\n# Inputs\n\n| Input | Meaning |\n|---|---|\n| `QTY` | \u5b9e\u9645\u6570\u91cf\u3002 |\n| `ESTIMATE_QTY` | \u9884\u8ba1\u6570\u91cf\u3002 |\n\n# Relationships\n\n* Data object: [OEE_DATA](../tables/oee-data.md)\n* Report surface: [FrmOEEReport OEE \u62a5\u8868](../reports/oee-report.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "queries/func00757-select-0001": "# Purpose\n\n`FUNC00757_SELECT[0001]` \u67e5\u8be2 Prober \u8bbe\u5907\u3001\u7ed1\u5b9a Tester\u3001\u5f53\u524d\u4ea7\u54c1\u3001Tester \u5b9e\u9645\u677f\u5361\u914d\u7f6e\u3001\u4ea7\u54c1\u5de5\u827a\u6240\u9700\u677f\u5361\u3002\n\n\u5f53\u524d\u5b9e\u73b0\u4e2d\uff0c\u5b83\u8d1f\u8d23\u7a33\u5b9a\u53d6\u6570\u548c\u8f93\u51fa\u5c55\u793a\u5217\uff1b\u590d\u6742 [CARD_GAP](../metrics/card-gap.md) \u7531 Java \u540e\u7aef\u8ba1\u7b97\u5e76\u8986\u76d6\u3002\n\n# Inputs\n\n| Parameter | Required | Meaning |\n|---|---:|---|\n| `EQP_GROUP_ID` | No | Prober \u8bbe\u5907\u7ec4\u3002 |\n| `EQP_ID` | No | Prober \u8bbe\u5907\u7f16\u53f7\u3002 |\n| `MODEL_ID` | No | Prober \u578b\u53f7\u3002 |\n| `TESTER_MODEL_ID` | No | Tester \u578b\u53f7\u3002 |\n| `CARD_TYPE` | No | \u677f\u5361\u7c7b\u578b\u8fc7\u6ee4\uff0c\u591a\u4e2a\u503c\u7528\u9017\u53f7\u5206\u9694\u3002 |\n\n# Outputs\n\n| Column | Meaning |\n|---|---|\n| `EQP_ID` | Prober \u8bbe\u5907\u7f16\u53f7\u3002 |\n| `MODEL_ID` | Prober \u578b\u53f7\u3002 |\n| `EQP_TEMPERATURE` | Prober \u6e29\u5ea6\u3002 |\n| `PROBER_SPECIAL_TYPE` | Prober \u7279\u6b8a\u7c7b\u578b\u63cf\u8ff0\u3002 |\n| `OCR` | Prober OCR\u3002 |\n| `CUST_ID` | \u5f53\u524d\u4ea7\u54c1\u5ba2\u6237\u3002 |\n| `PROD_ID` | \u5f53\u524d\u4ea7\u54c1\u3002 |\n| `WAFER_SIZE` | \u6676\u5706\u5c3a\u5bf8\u3002 |\n| `PROD_SPECIAL_TYPE` | \u4ea7\u54c1\u7279\u6b8a\u7c7b\u578b\u63cf\u8ff0\u3002 |\n| `PROD_OCR` | \u4ea7\u54c1\u6807\u9898\u662f\u5426\u5305\u542b OCR\u3002 |\n| `TESTER_EQP_ID` | \u7ed1\u5b9a Tester\u3002 |\n| `TESTER_TEMPERATURE` | Tester \u6e29\u5ea6\u3002 |\n| `TESTER_SPECIAL_TYPE` | Tester \u7279\u6b8a\u7c7b\u578b\u3002 |\n| `TESTER_OCR` | Tester OCR\u3002 |\n| `TESTER_CARD_DETAIL` | Tester \u5b9e\u9645\u677f\u5361\u5c55\u793a\u3002 |\n| `REQUIRED_PC_CARD` | \u5f53\u524d\u4ea7\u54c1\u5de5\u827a\u6240\u9700\u677f\u5361\u3002 |\n| `CARD_GAP` | Java \u540e\u7aef\u8ba1\u7b97\u540e\u8986\u76d6\u7684\u591a\u4f59\u677f\u5361\u3002 |\n\n# Source Tables\n\n* [EQP](../tables/eqp.md)\n* [ET_PROBER_TESTER](../tables/et-prober-tester.md)\n* [EQP_STATE](../tables/eqp-state.md)\n* [CUST_CARD_INFO](../tables/cust-card-info.md)\n* [PROC_EQP](../tables/proc-eqp.md)\n* [ET_PROC_CARD](../tables/et-proc-card.md)\n\n# Key Rules\n\n* `REQUIRED_PC_CARD` \u5fc5\u987b\u4fdd\u7559 `ET_PROC_CARD.CARD_TYPE_DETAIL` \u539f\u59cb\u540d\u79f0\u3002\n* `REQUIRED_PC_CARD` \u5e94\u5148 `DISTINCT CARD_CNT, CARD_TYPE_DETAIL`\uff0c\u518d `STRING_AGG`\u3002\n* `TESTER_CARD_DETAIL` \u53ef\u4f7f\u7528 `FPVI(...)`\u3001`DIO(...)` \u5305\u88c5\u5c55\u793a\u7279\u6b8a\u677f\u5361\u3002\n* Java \u670d\u52a1\u4f9d\u8d56 `TESTER_CARD_DETAIL` \u4e0e `REQUIRED_PC_CARD`\uff0c\u4e0a\u7ebf\u524d\u5fc5\u987b\u786e\u8ba4\u8fd0\u884c\u5e93\u67e5\u8be2\u4ecd\u8fd4\u56de\u8fd9\u4e24\u5217\u3002\n\n# Caller\n\n```text\nFunc00757ServiceExt.selectFunc00757Report\n  -> QueryService.getDataByCustomQueryID(\"FUNC00757_SELECT\", \"0001\", param)\n```\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "queries/get-oee-data-cust-0001": "# Purpose\n\n`GetOEEData_CUST[0001]` \u662f OEE \u6570\u636e\u8bfb\u53d6\u67e5\u8be2\u3002\u6e90\u7801\u4e2d\u53ef\u89c1\u4e24\u4e2a\u8c03\u7528\u70b9\uff1a\n\n* `FrmEditOEEData` \u8bfb\u53d6\u7f16\u8f91\u6570\u636e\u3002\n* `FrmOEEAnalysis` \u8bfb\u53d6 OEE \u5206\u6790\u6570\u636e\u3002\n\n# Known Caller Pattern\n\n```text\nQryServiceWithProcess.GetDataByCustQueryID(\"GetOEEData_CUST\", \"0001\", param)\n```\n\n# Expected Outputs\n\n\u8fd0\u884c\u65f6 SQL \u4e0d\u5728\u4ed3\u5e93\u6e90\u7801\u4e2d\u3002\u672c bundle \u53ea\u8bb0\u5f55\u5f53\u524d\u4ee3\u7801\u4f9d\u8d56\u7684\u660e\u663e\u8f93\u51fa\u5217\uff1a\n\n| Column | Meaning |\n|---|---|\n| `QTY` | OEE \u6c47\u603b\u5b9e\u9645\u6570\u91cf\u3002 |\n| `ESTIMATE_QTY` | OEE \u6c47\u603b\u9884\u8ba1\u6570\u91cf\u3002 |\n| `OEE` | OEE \u5c55\u793a\u5217\u3002 |\n| `EQP_ID` | \u8bbe\u5907\u7ef4\u5ea6\u3002 |\n| Date / Shift columns | \u67e5\u8be2\u4e0a\u4e0b\u6587\uff0c\u5b57\u6bb5\u540d\u9700\u4ee5\u8fd0\u884c\u65f6 SQL \u4e3a\u51c6\u3002 |\n\n# Related Concepts\n\n* [OEE_DATA](../tables/oee-data.md)\n* [FrmOEEReport OEE \u62a5\u8868](../reports/oee-report.md)\n* [OEE](../metrics/oee.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "queries/get-oee-update-hist-cust-0001": "# Purpose\n\n`GetOEEUpdateHist_CUST[0001]` \u7528\u4e8e\u67e5\u8be2 OEE \u66f4\u65b0\u5386\u53f2\u3002`FrmOEEReport.BtnHistory_Click` \u4e2d\u901a\u8fc7\u5f53\u524d\u62a5\u8868\u6761\u4ef6 `GetCondition()` \u4f5c\u4e3a\u53c2\u6570\u8bfb\u53d6\u5386\u53f2\u5e76\u7ed1\u5b9a\u5230 History grid\u3002\n\n# Caller\n\n```text\nFrmOEEReport.BtnHistory_Click\n  -> GetCondition()\n  -> QryServiceWithProcess.GetDataByCustQueryID(\"GetOEEUpdateHist_CUST\", \"0001\", param)\n```\n\n# Related Concepts\n\n* [OEE_DATA](../tables/oee-data.md)\n* [FrmOEEReport OEE \u62a5\u8868](../reports/oee-report.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "references/source-evidence": "# Generation Context\n\n\u672c bundle \u6309 `03-Resources/\u5f85\u5b9e\u8df5/knowledge-catalog-\u8bf4\u660e\u548c\u4f7f\u7528\u6587\u6863.md` \u7684\u201c\u7b2c\u4e00\u9636\u6bb5\uff1a\u53ea\u7528 OKF \u601d\u8def\uff0c\u4e0d\u78b0 GCP \u5199\u5165\u201d\u751f\u6210\u3002\n\n\u8f93\u51fa\u76ee\u5f55\uff1a\n\n```text\nD:/Workspace/knowledge-catalog/okf/bundles/mes\n```\n\n# Private Knowledge Precheck\n\n\u547d\u4e2d\u7684\u79c1\u57df\u77e5\u8bc6\u7d22\u5f15\u57df\uff1a\n\n* \u6570\u636e\u6a21\u578b\u4e0e\u8868\u5173\u7cfb\u3002\n* \u67e5\u8be2\u4e0e SQL \u89c4\u8303\u3002\n* \u524d\u7aef\u9875\u9762\u4e0e\u4ea4\u4e92\u89c4\u8303\u3002\n\n\u5ef6\u8fdf\u52a0\u8f7d\u6587\u6863\uff1a\n\n* `docs/\u79c1\u57df\u77e5\u8bc6/MES_SERVICE/02_\u6570\u636e\u6a21\u578b.md`\n* `docs/\u79c1\u57df\u77e5\u8bc6/MES_UI/05_\u5f00\u53d1\u89c4\u8303.md`\n* `docs/\u79c1\u57df\u77e5\u8bc6\u5de5\u7a0b\u4f53\u7cfb\u4ea7\u51fa/\u77e5\u8bc6\u6c89\u6dc0/\u6570\u636e\u6a21\u578b\u624b\u518c.md`\n* `docs/\u79c1\u57df\u77e5\u8bc6\u5de5\u7a0b\u4f53\u7cfb\u4ea7\u51fa/\u77e5\u8bc6\u6c89\u6dc0/\u67e5\u8be2\u89c4\u683c\u5361\u7247\u6a21\u677f-MSSQL.md`\n\n# CodeGraph\n\nMES \u4ed3\u5e93\u5b58\u5728 `.codegraph/`\u3002\u521d\u6b21\u5728\u6c99\u7bb1\u4e2d\u8fd0\u884c `codegraph explore` \u548c `codegraph status` \u65f6\u51fa\u73b0 `unable to open database file`\uff1b\u63d0\u6743\u8bfb\u53d6\u540e `codegraph status` \u663e\u793a\u7d22\u5f15\u6b63\u5e38\uff1a\n\n```text\nFiles: 3,565\nNodes: 109,972\nEdges: 306,709\nDB Size: 381.68 MB\nIndex is up to date\n```\n\n\u4f7f\u7528\u8fc7\u7684 CodeGraph \u67e5\u8be2\uff1a\n\n```text\ncodegraph explore \"MES data catalog for PROC_EQP OEE_DATA FUNC00757 TESTER_CARD_DETAIL REQUIRED_PC_CARD FrmOEEReport Func00757ServiceExt\"\ncodegraph explore \"PROC_EQP PFOAddData OKData ProcEqpManagement MdmServices.ProcEqpSave PROC_EQP_HIST OEE_TIME release OeeTimeInfo\"\n```\n\n# Source Anchors\n\n| Area | Source |\n|---|---|\n| FUNC00757 Java service | `backend/MES_SERVICE/nebula-mes-ext/src/main/java/com/nebula/mes/extension/object/generalReport/func00757/service/Func00757ServiceExt.java` |\n| FUNC00757 constants | `backend/MES_SERVICE/nebula-mes-ext/src/main/java/com/nebula/mes/extension/object/generalReport/func00757/service/Func00757ReportConstants.java` |\n| FUNC00757 method summary | `docs/specs/func00757-card-gap-java/05_method_summary.md` |\n| FUNC00757 SQL explanation | `FUNC00757_SQL\u8bf4\u660e.md` |\n| OEE report UI | `frontend/MES_UI/Nebula.MOS.Module.Inquiry/Lot/FrmOEEReport.cs` |\n| OEE edit popup | `frontend/MES_UI/Nebula.MOS.Module/Popup/FrmEditOEEData.cs` |\n| PRP release and PROC_EQP copy | `backend/MDM_SERVICE/nebula-mdm-server/src/main/java/com/nebula/mdm/management/process/PrpManagement.java` |\n| Data model handbook | `docs/\u79c1\u57df\u77e5\u8bc6\u5de5\u7a0b\u4f53\u7cfb\u4ea7\u51fa/\u77e5\u8bc6\u6c89\u6dc0/\u6570\u636e\u6a21\u578b\u624b\u518c.md` |\n| Query card template | `docs/\u79c1\u57df\u77e5\u8bc6\u5de5\u7a0b\u4f53\u7cfb\u4ea7\u51fa/\u77e5\u8bc6\u6c89\u6dc0/\u67e5\u8be2\u89c4\u683c\u5361\u7247\u6a21\u677f-MSSQL.md` |\n\n# Boundaries\n\n* \u8fd0\u884c\u65f6 `CUST_QUERY` SQL \u5927\u591a\u4e0d\u5728\u4ed3\u5e93\u6e90\u7801\u5185\u3002\u672c bundle \u5bf9 `FUNC00757_SELECT[0001]` \u4f7f\u7528\u4ed3\u5e93\u5185 `FUNC00757_SQL\u8bf4\u660e.md` \u548c\u89c4\u683c\u6587\u6863\u4f5c\u4e3a\u8bc1\u636e\u3002\n* `GetOEEData_CUST[0001]` \u4e0e `GetOEEUpdateHist_CUST[0001]` \u7684 SQL \u6b63\u6587\u672a\u5728\u6e90\u7801\u4e2d\u786e\u8ba4\uff0c\u672c bundle \u53ea\u8bb0\u5f55\u53ef\u89c1\u8c03\u7528\u70b9\u548c\u5b57\u6bb5\u4f9d\u8d56\u3002\n* \u7b2c\u4e00\u7248\u53ea\u8986\u76d6 CP OEE \u4e0e\u677f\u5361\u5dee\u989d\u9886\u57df\uff0c\u4e0d\u8986\u76d6\u5168\u90e8 MES \u6570\u636e\u8d44\u4ea7\u3002\n* \u672c bundle \u672a\u8fde\u63a5 Google Cloud Knowledge Catalog\uff0c\u4e5f\u672a\u6267\u884c `kcmd push`\u3002", "reports/func00757": "# Purpose\n\n`FUNC00757` \u7528\u4e8e\u67e5\u770b Prober \u8bbe\u5907\u3001\u7ed1\u5b9a Tester\u3001\u5f53\u524d\u4ea7\u54c1\u3001Tester \u5b9e\u9645\u677f\u5361\u3001\u4ea7\u54c1\u5de5\u827a\u6240\u9700\u677f\u5361\uff0c\u4ee5\u53ca\u5b9e\u9645\u6bd4\u6240\u9700\u591a\u51fa\u7684\u677f\u5361\u3002\n\n# Runtime Path\n\n```text\nFrmGeneralReport\n  -> FuncID = FUNC00757 \u65f6\u8d70\u4e13\u7528\u540e\u7aef\u8def\u7531\n  -> Func00757ReportManagement#select\n  -> Func00757ServiceExt.selectFunc00757Report(param)\n  -> QueryService.getDataByCustomQueryID(\"FUNC00757_SELECT\", \"0001\", param)\n  -> Func00757CardGapCalculator.calculateCardGap(TESTER_CARD_DETAIL, REQUIRED_PC_CARD)\n```\n\n# Inputs\n\n\u67e5\u8be2\u53c2\u6570\u6765\u81ea\u901a\u7528\u62a5\u8868\u6761\u4ef6\u533a\uff0c\u5173\u952e\u8fc7\u6ee4\u5305\u62ec\uff1a\n\n| Parameter | Meaning |\n|---|---|\n| `EQP_GROUP_ID` | Prober \u8bbe\u5907\u7ec4\u3002 |\n| `EQP_ID` | Prober \u8bbe\u5907\u7f16\u53f7\u3002 |\n| `MODEL_ID` | Prober \u578b\u53f7\u3002 |\n| `TESTER_MODEL_ID` | Tester \u578b\u53f7\u3002 |\n| `CARD_TYPE` | \u677f\u5361\u7c7b\u578b\u8fc7\u6ee4\uff0c\u6309\u9017\u53f7\u62c6\u5206\u540e\u5339\u914d `TESTER_CARD_DETAIL`\u3002 |\n\n# Outputs\n\n| Column | Source / Meaning |\n|---|---|\n| `EQP_ID` | Prober \u8bbe\u5907\u3002 |\n| `MODEL_ID` | Prober \u578b\u53f7\u3002 |\n| `PROD_ID` | \u5f53\u524d\u4ea7\u54c1\uff0c\u6765\u81ea [EQP_STATE](../tables/eqp-state.md)\u3002 |\n| `TESTER_EQP_ID` | \u7ed1\u5b9a Tester\uff0c\u6765\u81ea [ET_PROBER_TESTER](../tables/et-prober-tester.md)\u3002 |\n| `TESTER_CARD_DETAIL` | Tester \u5b9e\u9645\u677f\u5361\u5c55\u793a\uff0c\u6765\u81ea [CUST_CARD_INFO](../tables/cust-card-info.md)\u3002 |\n| `REQUIRED_PC_CARD` | \u4ea7\u54c1\u5de5\u827a\u6240\u9700\u677f\u5361\uff0c\u6765\u81ea [ET_PROC_CARD](../tables/et-proc-card.md)\u3002 |\n| `CARD_GAP` | Java \u8ba1\u7b97\u7684\u5b9e\u9645\u591a\u51fa\u677f\u5361\uff0c\u89c1 [CARD_GAP](../metrics/card-gap.md)\u3002 |\n\n# Notes\n\n`TESTER_CARD_DETAIL` \u4e0e `REQUIRED_PC_CARD` \u65e2\u662f\u524d\u7aef\u5c55\u793a\u5217\uff0c\u4e5f\u662f Java \u8ba1\u7b97\u8f93\u5165\u3002\u8fd0\u884c\u65f6 `CUST_QUERY.FUNC00757_SELECT[0001]` \u5fc5\u987b\u4fdd\u7559\u8fd9\u4e24\u4e2a\u5217\u3002\n\n# Citations\n\n[1] [FUNC00757_SELECT[0001]](../queries/func00757-select-0001.md)\n[2] [CARD_GAP](../metrics/card-gap.md)\n[3] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "reports/oee-report": "# Purpose\n\n`FrmOEEReport` \u662f WinForms \u62a5\u8868\u7a97\u4f53\uff0c\u7ee7\u627f\u901a\u7528\u62a5\u8868\u57fa\u7c7b\u3002\u5b83\u8d1f\u8d23\u5c55\u793a OEE \u6570\u636e\u3001\u6253\u5f00\u7f16\u8f91\u5f39\u7a97\u3001\u67e5\u770b\u5386\u53f2\uff0c\u5e76\u5728\u67e5\u8be2\u540e\u8ba1\u7b97\u6c47\u603b\u884c\u3002\n\n# Runtime Path\n\n```text\nFrmOEEReport\n  -> AfterSearch\n  -> SetSummary()\n  -> AddSummary(\"SUM1\", \"QTY\", \"SUM([QTY])\")\n  -> AddSummary(\"SUM2\", \"ESTIMATE_QTY\", \"SUM([ESTIMATE_QTY])\")\n  -> AddSummary(\"OEE\", \"OEE\", \"ROUNDDOWN(SUM([QTY]) / SUM([ESTIMATE_QTY]) * 100, 2)\")\n```\n\n\u7f16\u8f91\u8def\u5f84\uff1a\n\n```text\nBtnEdit_Click\n  -> new FrmEditOEEData(date, shift)\n  -> form.GridId = \"OEE_DATA\"\n  -> form.Show()\n  -> SearchData()\n```\n\n\u5386\u53f2\u8def\u5f84\uff1a\n\n```text\nBtnHistory_Click\n  -> GetCondition()\n  -> QryServiceWithProcess.GetDataByCustQueryID(\"GetOEEUpdateHist_CUST\", \"0001\", param)\n```\n\n# Data Dependencies\n\n* [OEE_DATA](../tables/oee-data.md)\n* [GetOEEData_CUST[0001]](../queries/get-oee-data-cust-0001.md)\n* [GetOEEUpdateHist_CUST[0001]](../queries/get-oee-update-hist-cust-0001.md)\n* [OEE](../metrics/oee.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "tables/cust-card-info": "# Role\n\n`CUST_CARD_INFO` \u4fdd\u5b58 Tester \u5b9e\u9645\u767b\u8bb0\u7684\u677f\u5361\u4fe1\u606f\u3002FUNC00757 \u4f7f\u7528\u5b83\u751f\u6210 `TESTER_CARD_DETAIL`\uff0c\u5e76\u4e0e [ET_PROC_CARD](et-proc-card.md) \u4ea7\u751f\u7684 `REQUIRED_PC_CARD` \u6bd4\u8f83\u3002\n\n# Important Fields\n\n| Field | Meaning |\n|---|---|\n| `AUXILIARY_EQP_ID` | Tester \u8bbe\u5907\u7f16\u53f7\u3002 |\n| `AUXILIARY_MODEL_ID` | Tester \u578b\u53f7\u3002 |\n| `CARD_TYPE` | \u5b9e\u9645\u767b\u8bb0\u677f\u5361\u7c7b\u578b\u3002 |\n| `CARD_CNT` | \u5b9e\u9645\u767b\u8bb0\u677f\u5361\u6570\u91cf\u3002 |\n\n# Special Card Rules\n\n\u7279\u6b8a\u677f\u5361\u53ef\u80fd\u548c\u57fa\u7840\u677f\u5361\u540c\u6b65\u767b\u8bb0\uff1a\n\n| Special Card | Base Card |\n|---|---|\n| `FPVI10_PLUS` | `FPVI` |\n| `DIO_PLUS` | `DIO` |\n| `DIO_3.0` | `DIO` |\n\n\u751f\u6210 [CARD_GAP](../metrics/card-gap.md) \u65f6\uff0c\u4e0d\u80fd\u628a\u540c\u6b65\u767b\u8bb0\u7684\u57fa\u7840\u677f\u5361\u8bef\u5224\u4e3a\u591a\u4f59\uff0c\u4e5f\u4e0d\u80fd\u628a\u7279\u6b8a\u677f\u5361\u7edf\u4e00\u6298\u7b97\u6210\u57fa\u7840\u540d\u79f0\u8f93\u51fa\u3002\n\n# Relationships\n\n* Generates `TESTER_CARD_DETAIL` in [FUNC00757_SELECT[0001]](../queries/func00757-select-0001.md)\n* Compared against [ET_PROC_CARD](et-proc-card.md)\n* Drives [CARD_GAP](../metrics/card-gap.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "tables/eqp-state": "# Role\n\n`EQP_STATE` \u662f\u8fd0\u884c\u6001\u6570\u636e\uff0c\u8868\u793a\u8bbe\u5907\u5f53\u524d\u72b6\u6001\u3002FUNC00757 \u901a\u8fc7 `EQP_STATE.EQP_ID = EQP.EQP_ID` \u627e\u5230 Prober \u5f53\u524d\u4ea7\u54c1 `PROD_ID`\uff0c\u518d\u8fde\u63a5\u4ea7\u54c1\u4e3b\u6570\u636e\u83b7\u53d6\u5ba2\u6237\u3001\u6676\u5706\u5c3a\u5bf8\u3001\u4ea7\u54c1\u7279\u6b8a\u7c7b\u578b\u548c OCR \u5224\u65ad\u3002\n\n# Important Fields\n\n| Field | Meaning |\n|---|---|\n| `EQP_ID` | \u8bbe\u5907\u7f16\u53f7\uff0c\u8fde\u63a5 [EQP](eqp.md)\u3002 |\n| `PROD_ID` | \u5f53\u524d\u8bbe\u5907\u4e0a\u7684\u4ea7\u54c1\u3002 |\n| `RECIPE_ID` | \u5f53\u524d\u8bbe\u5907/\u4ea7\u54c1\u8fd0\u884c\u76f8\u5173 Recipe\uff0c\u5177\u4f53\u4f7f\u7528\u4f9d\u573a\u666f\u800c\u5b9a\u3002 |\n| `EVENT_*` | \u8fd0\u884c\u6001\u4e8b\u4ef6\u548c\u5ba1\u8ba1\u5b57\u6bb5\u3002 |\n\n# Boundary\n\n\u4e0d\u8981\u7528 [PROC_EQP](proc-eqp.md) \u66ff\u4ee3 `EQP_STATE` \u56de\u7b54\u5f53\u524d\u8fd0\u884c\u6001\u95ee\u9898\u3002`PROC_EQP` \u662f\u4e3b\u6570\u636e\u914d\u7f6e\uff0c`EQP_STATE` \u624d\u662f\u8bbe\u5907\u5f53\u524d\u72b6\u6001\u4fa7\u7684\u6570\u636e\u3002\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "tables/eqp": "# Role\n\n`EQP` \u662f\u8bbe\u5907\u4e3b\u6863\u3002FUNC00757 \u4e2d\u4e3b\u67e5\u8be2\u4ee5 Prober \u8bbe\u5907\u4e3a\u4e3b\u8868\uff0c\u540c\u65f6\u901a\u8fc7 [ET_PROBER_TESTER](et-prober-tester.md) \u5173\u8054 Tester \u8bbe\u5907\uff0c\u518d\u56de\u5230 `EQP` \u8bfb\u53d6 Tester \u4e3b\u6570\u636e\u3002\n\n# Important Fields\n\n| Field | Meaning |\n|---|---|\n| `EQP_ID` | \u8bbe\u5907\u7f16\u53f7\u3002 |\n| `MODEL_ID` | \u8bbe\u5907\u578b\u53f7\u3002 |\n| `DET_EQP_TYPE` | \u660e\u7ec6\u8bbe\u5907\u7c7b\u578b\uff1bFUNC00757 \u8fc7\u6ee4 `Prober`\u3002 |\n| `VIRTUAL_EQP_YN` | \u662f\u5426\u865a\u62df\u8bbe\u5907\uff1bFUNC00757 \u6392\u9664 `Y`\u3002 |\n| `EQP_GRP_ID` | \u8bbe\u5907\u7ec4\u8fc7\u6ee4\u6761\u4ef6\u3002 |\n| `EQP_TEMPERATURE` | \u8bbe\u5907\u6e29\u5ea6\u5c5e\u6027\u3002 |\n| `SPECIAL_TYPE` | \u7279\u6b8a\u7c7b\u578b\u4ee3\u7801\uff0c\u901a\u8fc7 `ENUM_VAL` \u8f6c\u63cf\u8ff0\u3002 |\n| `OCR` | OCR \u76f8\u5173\u914d\u7f6e\u3002 |\n\n# Relationships\n\n* Prober current product comes from [EQP_STATE](eqp-state.md)\n* Prober to Tester binding comes from [ET_PROBER_TESTER](et-prober-tester.md)\n* Tester actual cards come from [CUST_CARD_INFO](cust-card-info.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "tables/et-prober-tester": "# Role\n\n`ET_PROBER_TESTER` \u628a Prober \u8bbe\u5907\u4e0e Tester \u8bbe\u5907\u5173\u8054\u8d77\u6765\u3002FUNC00757 \u67e5\u8be2\u4ece [EQP](eqp.md) \u7684 Prober \u51fa\u53d1\uff0c\u901a\u8fc7\u672c\u8868\u5f97\u5230 `TESTER_EQP_ID`\uff0c\u518d\u56de\u5230 [EQP](eqp.md) \u8bfb\u53d6 Tester \u7684\u6e29\u5ea6\u3001\u7279\u6b8a\u7c7b\u578b\u548c OCR\u3002\n\n# Important Fields\n\n| Field | Meaning |\n|---|---|\n| `PROBER_EQP_ID` | Prober \u8bbe\u5907\u7f16\u53f7\u3002 |\n| `TESTER_EQP_ID` | Tester \u8bbe\u5907\u7f16\u53f7\u3002 |\n\n# Relationships\n\n* Source Prober: [EQP](eqp.md)\n* Target Tester: [EQP](eqp.md)\n* Tester cards: [CUST_CARD_INFO](cust-card-info.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "tables/et-proc-card": "# Role\n\n`ET_PROC_CARD` \u5b9a\u4e49\u67d0\u4e2a\u5de5\u827a\u8bbe\u5907\u914d\u7f6e\u9700\u8981\u54ea\u4e9b\u677f\u5361\u3001\u6bcf\u79cd\u51e0\u5f20\u3002\u5b83\u662f [FUNC00757](../reports/func00757.md) \u4e2d\u4ea7\u54c1\u6240\u9700\u677f\u5361\u5b57\u6bb5 `REQUIRED_PC_CARD` \u7684\u6765\u6e90\u3002\n\n# Important Fields\n\n| Field | Meaning |\n|---|---|\n| `PROC_RULE_ID` | \u5de5\u827a\u89c4\u5219\u6807\u8bc6\uff0c\u548c [PROC_EQP](proc-eqp.md) \u5bf9\u9f50\u3002 |\n| `EQP_ID` / `PROC_EQP_ID` | \u4e0e\u5de5\u827a\u8bbe\u5907\u914d\u7f6e\u5173\u8054\u7684\u8bbe\u5907\u952e\uff0c\u5177\u4f53\u5b57\u6bb5\u540d\u9700\u6309\u73b0\u573a SQL \u786e\u8ba4\u3002 |\n| `CARD_CNT` | \u6240\u9700\u677f\u5361\u6570\u91cf\u3002 |\n| `CARD_TYPE_DETAIL` | \u6240\u9700\u677f\u5361\u7c7b\u578b\uff0c\u5fc5\u987b\u4fdd\u7559\u539f\u59cb\u7c7b\u578b\uff0c\u4f8b\u5982 `FPVI10_PLUS`\u3001`DIO_PLUS`\u3001`DIO_3.0`\u3002 |\n\n# Query Semantics\n\n\u5728 `FUNC00757_SELECT[0001]` \u4e2d\uff0c\u6240\u9700\u677f\u5361\u6309\u4ee5\u4e0b\u8def\u5f84\u751f\u6210\uff1a\n\n```text\nPROD_ID -> PRP -> PROC_RULE -> PROC_EQP -> ET_PROC_CARD\n```\n\n`REQUIRED_PC_CARD` \u5fc5\u987b\u5148\u6309 `CARD_CNT + CARD_TYPE_DETAIL` \u53bb\u91cd\uff0c\u518d\u805a\u5408\u6210\u5c55\u793a\u5b57\u7b26\u4e32\uff0c\u5426\u5219\u4f1a\u56e0 `PROC_RULE x PROC_EQP` \u5c55\u5f00\u5bfc\u81f4\u91cd\u590d\u677f\u5361\u3002\n\n# Relationships\n\n* Used by [FUNC00757_SELECT[0001]](../queries/func00757-select-0001.md)\n* Compared with [CUST_CARD_INFO](cust-card-info.md)\n* Feeds [CARD_GAP](../metrics/card-gap.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "tables/oee-data": "# Role\n\n`OEE_DATA` \u662f OEE \u62a5\u8868\u548c\u7f16\u8f91\u5f39\u7a97\u4f7f\u7528\u7684\u6570\u636e\u5bf9\u8c61\u3002`FrmOEEReport` \u6253\u5f00\u7f16\u8f91\u7a97\u4f53\u65f6\u8bbe\u7f6e\uff1a\n\n```text\nform.GridId = \"OEE_DATA\"\n```\n\n\u7f16\u8f91\u5f39\u7a97\u901a\u8fc7 `UPDATE_OEE_DATA` \u670d\u52a1\u4fdd\u5b58\uff0c\u5e76\u901a\u8fc7 `GetOEEData_CUST[0001]` \u67e5\u8be2\u6570\u636e\u3002\n\n# Important Fields\n\n| Field | Meaning |\n|---|---|\n| `QTY` | \u5b9e\u9645\u6570\u91cf\uff0c\u53c2\u4e0e OEE \u6c47\u603b\u3002 |\n| `ESTIMATE_QTY` | \u9884\u8ba1\u6570\u91cf\uff0c\u53c2\u4e0e OEE \u6c47\u603b\u3002 |\n| `OEE` | \u62a5\u8868\u5c55\u793a\u6307\u6807\uff0c\u6c47\u603b\u53e3\u5f84\u89c1 [OEE](../metrics/oee.md)\u3002 |\n| `DATE` / `SHIFT` | OEE \u67e5\u8be2\u548c\u7f16\u8f91\u4e0a\u4e0b\u6587\uff0c\u5b9e\u9645\u5b57\u6bb5\u540d\u9700\u4ee5\u8fd0\u884c\u65f6\u67e5\u8be2\u4e3a\u51c6\u3002 |\n| `EQP_ID` | \u8bbe\u5907\u7ef4\u5ea6\u3002 |\n| `EVENT_*` | \u66f4\u65b0\u5386\u53f2\u548c\u5ba1\u8ba1\u5b57\u6bb5\u3002 |\n\n# Relationships\n\n* Display report: [FrmOEEReport OEE \u62a5\u8868](../reports/oee-report.md)\n* Data query: [GetOEEData_CUST[0001]](../queries/get-oee-data-cust-0001.md)\n* History query: [GetOEEUpdateHist_CUST[0001]](../queries/get-oee-update-hist-cust-0001.md)\n* Summary metric: [OEE](../metrics/oee.md)\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n", "tables/proc-eqp": "# Role\n\n`PROC_EQP` \u5c5e\u4e8e MDM \u4e3b\u6570\u636e\u914d\u7f6e\u53e3\u5f84\u3002\u5b83\u63cf\u8ff0\u5de5\u827a\u89c4\u5219\u5141\u8bb8\u6216\u914d\u7f6e\u7684\u8bbe\u5907\uff0c\u4e0d\u662f MES \u8fd0\u884c\u6001\u5f53\u524d\u8bbe\u5907\u6302\u8f7d\u7ed3\u679c\u3002\n\n\u5728\u672c\u77e5\u8bc6\u57df\u4e2d\uff0c\u5b83\u662f\u4ee5\u4e0b\u94fe\u8def\u7684\u4e2d\u95f4\u951a\u70b9\uff1a\n\n* [FUNC00757_SELECT[0001]](../queries/func00757-select-0001.md) \u4e2d\u7684 `PRP -> PROC_RULE -> PROC_EQP -> ET_PROC_CARD`\u3002\n* [ET_PROC_CARD](et-proc-card.md) \u7684\u677f\u5361\u9700\u6c42\u5f52\u5c5e\u3002\n* CP \u6539\u673a\u3001TrackIn\u3001ReplaceEQP \u7b49\u8fd0\u884c\u6d41\u7a0b\u4e2d\u7684 `PROC_EQP_ID` \u53c2\u6570\u6765\u6e90\u3002\n* PRP release \u590d\u5236\u914d\u7f6e\u65f6\uff0c\u590d\u5236 `PROC_EQP` \u540e\u89e6\u53d1 OeeTime \u8865\u9f50\u3002\n\n# Important Fields\n\n| Field | Meaning |\n|---|---|\n| `PROC_RULE_ID` | \u5de5\u827a\u89c4\u5219\u4e3b\u952e\uff0c\u8fde\u63a5 `PROC_RULE` \u4e0e\u672c\u8868\u3002 |\n| `PROC_EQP_ID` | \u5de5\u827a\u914d\u7f6e\u7ef4\u5ea6\u7684\u8bbe\u5907\u952e\uff0c\u4e0d\u662f\u73b0\u573a\u8bbe\u5907\u4e3b\u952e\u3002 |\n| `PRP_ID` | \u4ea7\u54c1\u5de5\u827a\u6216\u4ea7\u54c1\u8def\u7ebf\u6807\u8bc6\u3002 |\n| `FLOW_ID` | \u6d41\u7a0b\u6807\u8bc6\u3002 |\n| `OPER_ID` | \u5de5\u7ad9\u6807\u8bc6\u3002 |\n| `EQP_ID` | \u8bbe\u5907\u6216\u8bbe\u5907\u6a21\u578b\u76f8\u5173\u6807\u8bc6\uff0c\u5177\u4f53\u8bed\u4e49\u9700\u7ed3\u5408\u4e0a\u4e0b\u6587\u3002 |\n| `PROBER_GRP` | CP \u573a\u666f\u4e2d\u7528\u4e8e\u9488\u5361/Prober \u7ec4\u5339\u914d\u7684\u914d\u7f6e\u3002 |\n| `DEVICE` | CP \u8bbe\u5907\u76f8\u5173\u914d\u7f6e\u9879\u3002 |\n| `DUT` | CP DUT \u914d\u7f6e\u9879\u3002 |\n| `DEFAULT_YN` | \u9ed8\u8ba4\u8bbe\u5907\u914d\u7f6e\u6807\u8bc6\u3002 |\n\n# Relationships\n\n* Required card configuration: [ET_PROC_CARD](et-proc-card.md)\n* Product and process rule source in FUNC00757: [FUNC00757_SELECT[0001]](../queries/func00757-select-0001.md)\n* Runtime device state should not be inferred from this table alone: [EQP_STATE](eqp-state.md)\n* OEE release copy side effect: [OEE_DATA](oee-data.md)\n\n# Notes\n\n`PROC_EQP_ID` \u662f\u9ad8\u98ce\u9669\u6b67\u4e49\u5b57\u6bb5\u3002\u5b83\u7ecf\u5e38\u88ab\u524d\u7aef\u9875\u9762\u548c\u540e\u7aef\u63a5\u53e3\u4f20\u9012\uff0c\u4f46\u5b83\u4e0d\u662f `EQP.EQP_ID`\u3002\u56de\u7b54\u201c\u5f53\u524d\u6302\u4e86\u4ec0\u4e48\u8bbe\u5907\u201d\u65f6\uff0c\u4e0d\u80fd\u53ea\u770b `PROC_EQP`\uff0c\u8fd8\u9700\u8981\u7ed3\u5408\u8fd0\u884c\u6001\u8868\u548c\u4e1a\u52a1\u5165\u53e3\u3002\n\n# Citations\n\n[1] [\u6e90\u7801\u4e0e\u6587\u6863\u8bc1\u636e](../references/source-evidence.md)\n"}, "types": ["Knowledge Domain", "Metric", "Query", "Reference", "Report", "Table"], "palette": {"BigQuery Dataset": "#8b5cf6", "BigQuery Table": "#3b82f6", "Reference": "#10b981"}};
+</script>
+<script>
+(function () {
+  const bundle = window.BUNDLE;
+  const bundleName = window.BUNDLE_NAME;
+  document.title = `${bundleName} — OKF Viewer`;
+  document.getElementById("bundle-name").textContent = bundleName;
+
+  // Populate type filter
+  const typeSelect = document.getElementById("filter-type");
+  for (const t of bundle.types) {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    typeSelect.appendChild(opt);
+  }
+
+  // Build reverse-link index for backlinks
+  const backlinks = {};
+  for (const edge of bundle.edges) {
+    const { source, target } = edge.data;
+    (backlinks[target] ||= []).push(source);
+  }
+
+  // Look up node label/type by id
+  const nodeIndex = {};
+  for (const n of bundle.nodes) nodeIndex[n.data.id] = n.data;
+
+  const cy = cytoscape({
+    container: document.getElementById("graph"),
+    elements: [...bundle.nodes, ...bundle.edges],
+    style: [
+      {
+        selector: "node",
+        style: {
+          "background-color": "data(color)",
+          "label": "data(label)",
+          "color": "#0f172a",
+          "font-size": 11,
+          "text-valign": "bottom",
+          "text-margin-y": 4,
+          "text-wrap": "wrap",
+          "text-max-width": 120,
+          "width": "data(size)",
+          "height": "data(size)",
+          "border-width": 1,
+          "border-color": "#0f172a",
+        },
+      },
+      {
+        selector: "node:selected",
+        style: {
+          "border-width": 3,
+          "border-color": "#f59e0b",
+        },
+      },
+      {
+        selector: "edge",
+        style: {
+          "width": 1.5,
+          "line-color": "#cbd5e1",
+          "target-arrow-color": "#cbd5e1",
+          "target-arrow-shape": "triangle",
+          "curve-style": "bezier",
+          "arrow-scale": 0.9,
+        },
+      },
+      {
+        selector: "edge:selected",
+        style: {
+          "line-color": "#f59e0b",
+          "target-arrow-color": "#f59e0b",
+          "width": 2.5,
+        },
+      },
+      {
+        selector: ".dim",
+        style: { "opacity": 0.15 },
+      },
+    ],
+    layout: { name: "cose", animate: false, padding: 30 },
+    wheelSensitivity: 0.2,
+  });
+
+  cy.on("tap", "node", (evt) => showDetail(evt.target.id()));
+  cy.on("tap", (evt) => {
+    if (evt.target === cy) clearSelection();
+  });
+
+  document.getElementById("layout").addEventListener("change", (e) => {
+    cy.layout({ name: e.target.value, animate: false, padding: 30 }).run();
+  });
+
+  document.getElementById("reset").addEventListener("click", () => {
+    cy.fit(null, 30);
+    clearSelection();
+  });
+
+  document.getElementById("search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) {
+      cy.elements().removeClass("dim");
+      return;
+    }
+    cy.nodes().forEach((n) => {
+      const d = n.data();
+      const hay =
+        (d.label || "").toLowerCase() + " " +
+        d.id.toLowerCase() + " " +
+        (d.tags || []).join(" ").toLowerCase();
+      n.toggleClass("dim", !hay.includes(q));
+    });
+    cy.edges().forEach((edge) => {
+      const src = edge.source();
+      const tgt = edge.target();
+      edge.toggleClass("dim", src.hasClass("dim") || tgt.hasClass("dim"));
+    });
+  });
+
+  document.getElementById("filter-type").addEventListener("change", (e) => {
+    const t = e.target.value;
+    if (!t) {
+      cy.elements().removeClass("dim");
+      return;
+    }
+    cy.nodes().forEach((n) => {
+      n.toggleClass("dim", n.data("type") !== t);
+    });
+    cy.edges().forEach((edge) => {
+      edge.toggleClass("dim", edge.source().hasClass("dim") || edge.target().hasClass("dim"));
+    });
+  });
+
+  function clearSelection() {
+    cy.elements().unselect();
+    document.getElementById("detail-empty").hidden = false;
+    document.getElementById("detail-content").hidden = true;
+  }
+
+  function showDetail(conceptId) {
+    const data = nodeIndex[conceptId];
+    if (!data) return;
+    cy.elements().unselect();
+    const node = cy.getElementById(conceptId);
+    if (node) node.select();
+
+    document.getElementById("detail-empty").hidden = true;
+    const content = document.getElementById("detail-content");
+    content.hidden = false;
+
+    const chip = document.getElementById("detail-type");
+    chip.textContent = data.type;
+    chip.style.background = data.color;
+
+    document.getElementById("detail-title").textContent = data.label;
+    document.getElementById("detail-id").textContent = conceptId;
+    document.getElementById("detail-description").textContent = data.description || "—";
+
+    const resourceEl = document.getElementById("detail-resource");
+    resourceEl.innerHTML = "";
+    if (data.resource) {
+      const a = document.createElement("a");
+      a.href = data.resource;
+      a.textContent = data.resource;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.className = "external";
+      resourceEl.appendChild(a);
+    } else {
+      resourceEl.textContent = "—";
+    }
+
+    const tagsEl = document.getElementById("detail-tags");
+    tagsEl.innerHTML = "";
+    if (data.tags && data.tags.length) {
+      for (const t of data.tags) {
+        const span = document.createElement("span");
+        span.className = "tag";
+        span.textContent = t;
+        tagsEl.appendChild(span);
+      }
+    } else {
+      tagsEl.textContent = "—";
+    }
+
+    const body = bundle.bodies[conceptId] || "";
+    const html = marked.parse(body, { breaks: false, gfm: true });
+    const bodyEl = document.getElementById("detail-body");
+    bodyEl.innerHTML = html;
+    rewriteInternalLinks(bodyEl);
+
+    const bl = backlinks[conceptId] || [];
+    const blSection = document.getElementById("detail-backlinks");
+    const blList = document.getElementById("backlinks-list");
+    blList.innerHTML = "";
+    if (bl.length) {
+      blSection.hidden = false;
+      for (const src of bl) {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.textContent = nodeIndex[src]?.label || src;
+        a.dataset.target = src;
+        a.addEventListener("click", () => showDetail(src));
+        li.appendChild(a);
+        const muted = document.createElement("span");
+        muted.className = "muted";
+        muted.textContent = ` (${src})`;
+        li.appendChild(muted);
+        blList.appendChild(li);
+      }
+    } else {
+      blSection.hidden = true;
+    }
+
+    cy.animate({ center: { eles: node }, zoom: Math.max(cy.zoom(), 1.0) }, { duration: 200 });
+  }
+
+  function rewriteInternalLinks(root) {
+    root.querySelectorAll("a[href]").forEach((a) => {
+      const href = a.getAttribute("href");
+      if (!href) return;
+      if (href.startsWith("/") && href.endsWith(".md")) {
+        const target = href.slice(1, -3);
+        if (nodeIndex[target]) {
+          a.className = "internal";
+          a.setAttribute("href", "javascript:void(0)");
+          a.addEventListener("click", (e) => {
+            e.preventDefault();
+            showDetail(target);
+          });
+          return;
+        }
+      }
+      a.className = "external";
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener");
+    });
+  }
+
+  // Auto-show the first node (a dataset if available, else first concept)
+  const initial =
+    bundle.nodes.find((n) => n.data.type === "BigQuery Dataset") ||
+    bundle.nodes[0];
+  if (initial) showDetail(initial.data.id);
+})();
+
+</script>
+</body>
+</html>
